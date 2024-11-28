@@ -1,14 +1,13 @@
 # Train A Model (Basic)
 # Audience: Users who need to train a model without coding their own training loops.
 
-import os
+import lightning as L
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
-from torch.utils.data import DataLoader
-import lightning as L
 
 
 # Define the PyTorch nn.Modules
@@ -28,7 +27,7 @@ class Decoder(nn.Module):
 
     def forward(self, x):
         return self.l1(x)
-    
+
 
 # Define a LightningModule
 class LitAutoEncoder(L.LightningModule):
@@ -38,4 +37,24 @@ class LitAutoEncoder(L.LightningModule):
         self.decoder = decoder
 
     def training_step(self, batch, batch_idx):
-        
+        x, _ = batch
+        x = x.view(x.size(0), -1)
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        loss = F.mse_loss(x_hat, x)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
+
+
+# Define the training dataset
+dataset = MNIST(root="../../../../dataset/", download=True, transform=transforms.ToTensor())
+train_loader = DataLoader(dataset)
+
+# Train the model
+autoencoder = LitAutoEncoder(Encoder(), Decoder())
+
+trainer = L.Trainer()
+trainer.fit(model=autoencoder, train_dataloaders=train_loader)
